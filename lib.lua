@@ -38,15 +38,6 @@ function KaelixLib:CreateWindow(title)
 
 	print("🔧 Criando ScreenGui...")
 
-	-- Criar ScreenGui
-	local ScreenGui = Instance.new("ScreenGui")
-	ScreenGui.Name = "KaelixHub"
-	ScreenGui.ResetOnSpawn = false
-	ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	ScreenGui.Enabled = true -- Garantir que está habilitado
-
-	print("🔧 ScreenGui criado, buscando PlayerGui...")
-
 	-- Colocar no PlayerGui (melhor para testes no Studio)
 	local Players = game:GetService("Players")
 	local LocalPlayer = Players.LocalPlayer
@@ -60,6 +51,37 @@ function KaelixLib:CreateWindow(title)
 	end
 
 	print("🔧 PlayerGui encontrado:", PlayerGui:GetFullName())
+
+	-- REMOVER UIs ANTIGAS (evitar acúmulo)
+	-- Verificar no PlayerGui
+	local oldUI = PlayerGui:FindFirstChild("KaelixHub")
+	if oldUI then
+		print("🗑️ Removendo UI antiga do PlayerGui...")
+		oldUI:Destroy()
+	end
+
+	-- Verificar no CoreGui (para executores)
+	local success, CoreGui = pcall(function()
+		return game:GetService("CoreGui")
+	end)
+
+	if success and CoreGui then
+		local oldCoreUI = CoreGui:FindFirstChild("KaelixHub")
+		if oldCoreUI then
+			print("🗑️ Removendo UI antiga do CoreGui...")
+			oldCoreUI:Destroy()
+		end
+	end
+
+	-- Pequeno delay para garantir que a UI antiga foi destruída
+	wait(0.1)
+
+	-- Criar ScreenGui
+	local ScreenGui = Instance.new("ScreenGui")
+	ScreenGui.Name = "KaelixHub"
+	ScreenGui.ResetOnSpawn = false
+	ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	ScreenGui.Enabled = true -- Garantir que está habilitado
 
 	-- Proteção contra detecção (para executores)
 	if syn and syn.protect_gui then
@@ -731,7 +753,368 @@ function KaelixLib:CreateWindow(title)
 			}
 		end
 
+		-- Função para criar um dropdown
+		function TabLib:CreateDropdown(text, options, default, callback)
+			options = options or {}
+			default = default or (options[1] or "None")
+
+			local DropdownFrame = Instance.new("Frame")
+			DropdownFrame.Name = "DropdownFrame"
+			DropdownFrame.Size = UDim2.new(1, -10, 0, 35)
+			DropdownFrame.BackgroundColor3 = Config.SecondaryColor
+			DropdownFrame.BorderSizePixel = 0
+			DropdownFrame.Parent = TabContent
+			DropdownFrame.ClipsDescendants = true
+			AddCorner(DropdownFrame, 6)
+
+			local DropdownLabel = Instance.new("TextLabel")
+			DropdownLabel.Name = "Label"
+			DropdownLabel.Size = UDim2.new(1, -90, 0, 35)
+			DropdownLabel.Position = UDim2.new(0, 10, 0, 0)
+			DropdownLabel.BackgroundTransparency = 1
+			DropdownLabel.Text = text
+			DropdownLabel.TextColor3 = Config.TextColor
+			DropdownLabel.TextSize = 13
+			DropdownLabel.Font = Config.Font
+			DropdownLabel.TextXAlignment = Enum.TextXAlignment.Left
+			DropdownLabel.Parent = DropdownFrame
+
+			local DropdownButton = Instance.new("TextButton")
+			DropdownButton.Name = "Button"
+			DropdownButton.Size = UDim2.new(0, 150, 0, 25)
+			DropdownButton.Position = UDim2.new(1, -160, 0, 5)
+			DropdownButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+			DropdownButton.BorderSizePixel = 0
+			DropdownButton.Text = default .. " ▼"
+			DropdownButton.TextColor3 = Config.TextColor
+			DropdownButton.TextSize = 12
+			DropdownButton.Font = Config.Font
+			DropdownButton.AutoButtonColor = false
+			DropdownButton.Parent = DropdownFrame
+			AddCorner(DropdownButton, 4)
+
+			local DropdownList = Instance.new("Frame")
+			DropdownList.Name = "List"
+			DropdownList.Size = UDim2.new(0, 150, 0, 0)
+			DropdownList.Position = UDim2.new(1, -160, 0, 35)
+			DropdownList.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+			DropdownList.BorderSizePixel = 0
+			DropdownList.Visible = false
+			DropdownList.Parent = DropdownFrame
+			AddCorner(DropdownList, 4)
+
+			local ListLayout = Instance.new("UIListLayout")
+			ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+			ListLayout.Padding = UDim.new(0, 2)
+			ListLayout.Parent = DropdownList
+
+			local selectedValue = default
+			local isOpen = false
+
+			-- Criar opções
+			for _, option in ipairs(options) do
+				local OptionButton = Instance.new("TextButton")
+				OptionButton.Name = option
+				OptionButton.Size = UDim2.new(1, 0, 0, 25)
+				OptionButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+				OptionButton.BorderSizePixel = 0
+				OptionButton.Text = option
+				OptionButton.TextColor3 = Config.TextColor
+				OptionButton.TextSize = 11
+				OptionButton.Font = Config.Font
+				OptionButton.AutoButtonColor = false
+				OptionButton.Parent = DropdownList
+
+				-- Highlight se for a opção selecionada
+				if option == selectedValue then
+					OptionButton.BackgroundColor3 = Config.MainColor
+				end
+
+				OptionButton.MouseEnter:Connect(function()
+					if option ~= selectedValue then
+						Tween(OptionButton, { BackgroundColor3 = Color3.fromRGB(55, 55, 55) }, 0.2)
+					end
+				end)
+
+				OptionButton.MouseLeave:Connect(function()
+					if option ~= selectedValue then
+						Tween(OptionButton, { BackgroundColor3 = Color3.fromRGB(45, 45, 45) }, 0.2)
+					end
+				end)
+
+				OptionButton.MouseButton1Click:Connect(function()
+					selectedValue = option
+					DropdownButton.Text = option .. " ▼"
+
+					-- Atualizar highlight
+					for _, child in pairs(DropdownList:GetChildren()) do
+						if child:IsA("TextButton") then
+							if child.Text == option then
+								Tween(child, { BackgroundColor3 = Config.MainColor }, 0.2)
+							else
+								Tween(child, { BackgroundColor3 = Color3.fromRGB(45, 45, 45) }, 0.2)
+							end
+						end
+					end
+
+					-- Fechar dropdown
+					isOpen = false
+					DropdownButton.Text = option .. " ▼"
+					Tween(DropdownFrame, { Size = UDim2.new(1, -10, 0, 35) }, 0.3)
+					wait(0.3)
+					DropdownList.Visible = false
+
+					pcall(callback, option)
+				end)
+			end
+
+			-- Abrir/Fechar dropdown
+			DropdownButton.MouseButton1Click:Connect(function()
+				isOpen = not isOpen
+
+				if isOpen then
+					DropdownButton.Text = selectedValue .. " ▲"
+					DropdownList.Visible = true
+					local listHeight = #options * 27
+					Tween(DropdownFrame, { Size = UDim2.new(1, -10, 0, 35 + listHeight + 5) }, 0.3)
+					DropdownList.Size = UDim2.new(0, 150, 0, listHeight)
+				else
+					DropdownButton.Text = selectedValue .. " ▼"
+					Tween(DropdownFrame, { Size = UDim2.new(1, -10, 0, 35) }, 0.3)
+					wait(0.3)
+					DropdownList.Visible = false
+				end
+			end)
+
+			return {
+				SetValue = function(value)
+					selectedValue = value
+					DropdownButton.Text = value .. " ▼"
+
+					-- Atualizar highlight
+					for _, child in pairs(DropdownList:GetChildren()) do
+						if child:IsA("TextButton") then
+							if child.Text == value then
+								child.BackgroundColor3 = Config.MainColor
+							else
+								child.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+							end
+						end
+					end
+				end,
+				GetValue = function()
+					return selectedValue
+				end,
+				Refresh = function(newOptions)
+					-- Limpar opções antigas
+					for _, child in pairs(DropdownList:GetChildren()) do
+						if child:IsA("TextButton") then
+							child:Destroy()
+						end
+					end
+
+					-- Adicionar novas opções
+					for _, option in ipairs(newOptions) do
+						local OptionButton = Instance.new("TextButton")
+						OptionButton.Name = option
+						OptionButton.Size = UDim2.new(1, 0, 0, 25)
+						OptionButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+						OptionButton.BorderSizePixel = 0
+						OptionButton.Text = option
+						OptionButton.TextColor3 = Config.TextColor
+						OptionButton.TextSize = 11
+						OptionButton.Font = Config.Font
+						OptionButton.AutoButtonColor = false
+						OptionButton.Parent = DropdownList
+
+						OptionButton.MouseButton1Click:Connect(function()
+							selectedValue = option
+							DropdownButton.Text = option .. " ▼"
+							isOpen = false
+							Tween(DropdownFrame, { Size = UDim2.new(1, -10, 0, 35) }, 0.3)
+							wait(0.3)
+							DropdownList.Visible = false
+							pcall(callback, option)
+						end)
+					end
+				end,
+			}
+		end
+
 		return TabLib
+	end
+
+	-- Sistema de Notificações (estilo Windows)
+	local NotificationQueue = {}
+	local ActiveNotifications = {}
+	local MaxNotifications = 5
+
+	function WindowLib:CreateNotification(title, content, duration)
+		title = title or "Notification"
+		content = content or "No content"
+		duration = duration or 5
+
+		-- Se já tem muitas notificações, adicionar na fila
+		if #ActiveNotifications >= MaxNotifications then
+			table.insert(NotificationQueue, { title = title, content = content, duration = duration })
+			return
+		end
+
+		-- Criar notificação
+		local NotifFrame = Instance.new("Frame")
+		NotifFrame.Name = "Notification"
+		NotifFrame.Size = UDim2.new(0, 300, 0, 0)
+		NotifFrame.Position = UDim2.new(1, -320, 1, -20)
+		NotifFrame.BackgroundColor3 = Config.BackgroundColor
+		NotifFrame.BorderSizePixel = 0
+		NotifFrame.ClipsDescendants = true
+		NotifFrame.Parent = ScreenGui
+		AddCorner(NotifFrame, 8)
+
+		-- Sombra
+		local NotifShadow = Instance.new("ImageLabel")
+		NotifShadow.Name = "Shadow"
+		NotifShadow.Size = UDim2.new(1, 20, 1, 20)
+		NotifShadow.Position = UDim2.new(0, -10, 0, -10)
+		NotifShadow.BackgroundTransparency = 1
+		NotifShadow.Image = "rbxassetid://1316045217"
+		NotifShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+		NotifShadow.ImageTransparency = 0.5
+		NotifShadow.ScaleType = Enum.ScaleType.Slice
+		NotifShadow.SliceCenter = Rect.new(10, 10, 118, 118)
+		NotifShadow.ZIndex = 0
+		NotifShadow.Parent = NotifFrame
+
+		-- Header da notificação
+		local NotifHeader = Instance.new("Frame")
+		NotifHeader.Name = "Header"
+		NotifHeader.Size = UDim2.new(1, 0, 0, 35)
+		NotifHeader.BackgroundColor3 = Config.MainColor
+		NotifHeader.BorderSizePixel = 0
+		NotifHeader.Parent = NotifFrame
+		AddCorner(NotifHeader, 8)
+
+		local NotifHeaderFix = Instance.new("Frame")
+		NotifHeaderFix.Size = UDim2.new(1, 0, 0, 8)
+		NotifHeaderFix.Position = UDim2.new(0, 0, 1, -8)
+		NotifHeaderFix.BackgroundColor3 = Config.MainColor
+		NotifHeaderFix.BorderSizePixel = 0
+		NotifHeaderFix.Parent = NotifHeader
+
+		-- Título
+		local NotifTitle = Instance.new("TextLabel")
+		NotifTitle.Name = "Title"
+		NotifTitle.Size = UDim2.new(1, -40, 1, 0)
+		NotifTitle.Position = UDim2.new(0, 10, 0, 0)
+		NotifTitle.BackgroundTransparency = 1
+		NotifTitle.Text = title
+		NotifTitle.TextColor3 = Config.TextColor
+		NotifTitle.TextSize = 14
+		NotifTitle.Font = Enum.Font.GothamBold
+		NotifTitle.TextXAlignment = Enum.TextXAlignment.Left
+		NotifTitle.Parent = NotifHeader
+
+		-- Botão fechar
+		local CloseButton = Instance.new("TextButton")
+		CloseButton.Name = "Close"
+		CloseButton.Size = UDim2.new(0, 25, 0, 25)
+		CloseButton.Position = UDim2.new(1, -30, 0, 5)
+		CloseButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+		CloseButton.BorderSizePixel = 0
+		CloseButton.Text = "×"
+		CloseButton.TextColor3 = Config.TextColor
+		CloseButton.TextSize = 18
+		CloseButton.Font = Enum.Font.GothamBold
+		CloseButton.AutoButtonColor = false
+		CloseButton.Parent = NotifHeader
+		AddCorner(CloseButton, 4)
+
+		-- Conteúdo
+		local NotifContent = Instance.new("TextLabel")
+		NotifContent.Name = "Content"
+		NotifContent.Size = UDim2.new(1, -20, 1, -45)
+		NotifContent.Position = UDim2.new(0, 10, 0, 40)
+		NotifContent.BackgroundTransparency = 1
+		NotifContent.Text = content
+		NotifContent.TextColor3 = Color3.fromRGB(200, 200, 200)
+		NotifContent.TextSize = 12
+		NotifContent.Font = Config.Font
+		NotifContent.TextXAlignment = Enum.TextXAlignment.Left
+		NotifContent.TextYAlignment = Enum.TextYAlignment.Top
+		NotifContent.TextWrapped = true
+		NotifContent.Parent = NotifFrame
+
+		-- Calcular altura baseado no conteúdo
+		local textSize = game:GetService("TextService")
+			:GetTextSize(content, 12, Config.Font, Vector2.new(270, math.huge))
+		local contentHeight = math.max(60, math.min(textSize.Y + 50, 200))
+
+		-- Adicionar à lista de notificações ativas
+		table.insert(ActiveNotifications, NotifFrame)
+
+		-- Reposicionar todas as notificações
+		local function RepositionNotifications()
+			local yOffset = 20
+			for i = #ActiveNotifications, 1, -1 do
+				local notif = ActiveNotifications[i]
+				if notif and notif.Parent then
+					Tween(notif, { Position = UDim2.new(1, -320, 1, -(yOffset + notif.Size.Y.Offset)) }, 0.3)
+					yOffset = yOffset + notif.Size.Y.Offset + 10
+				end
+			end
+		end
+
+		-- Animação de entrada (expandir)
+		Tween(NotifFrame, { Size = UDim2.new(0, 300, 0, contentHeight) }, 0.3)
+		wait(0.3)
+		RepositionNotifications()
+
+		-- Função para remover notificação
+		local function RemoveNotification()
+			-- Animação de saída
+			Tween(
+				NotifFrame,
+				{ Position = UDim2.new(1, 0, NotifFrame.Position.Y.Scale, NotifFrame.Position.Y.Offset) },
+				0.3
+			)
+			wait(0.3)
+
+			-- Remover da lista
+			for i, notif in ipairs(ActiveNotifications) do
+				if notif == NotifFrame then
+					table.remove(ActiveNotifications, i)
+					break
+				end
+			end
+
+			NotifFrame:Destroy()
+			RepositionNotifications()
+
+			-- Processar fila
+			if #NotificationQueue > 0 then
+				local next = table.remove(NotificationQueue, 1)
+				WindowLib:CreateNotification(next.title, next.content, next.duration)
+			end
+		end
+
+		-- Botão fechar
+		CloseButton.MouseButton1Click:Connect(RemoveNotification)
+
+		CloseButton.MouseEnter:Connect(function()
+			Tween(CloseButton, { BackgroundColor3 = Color3.fromRGB(220, 40, 40) }, 0.2)
+		end)
+
+		CloseButton.MouseLeave:Connect(function()
+			Tween(CloseButton, { BackgroundColor3 = Color3.fromRGB(255, 60, 60) }, 0.2)
+		end)
+
+		-- Auto-remover depois de X segundos
+		spawn(function()
+			wait(duration)
+			if NotifFrame.Parent then
+				RemoveNotification()
+			end
+		end)
 	end
 
 	return WindowLib
