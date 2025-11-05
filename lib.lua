@@ -530,8 +530,9 @@ function KaelixLib:CreateWindow(title)
 				end
 			end)
 
-			SliderButton.MouseButton1Click:Connect(function(input)
-				UpdateSlider(UserInputService:GetMouseLocation())
+			SliderButton.MouseButton1Click:Connect(function()
+				-- Clique simples não atualiza - apenas drag funciona
+				-- Removido GetMouseLocation() para evitar detecção
 			end)
 
 			return {
